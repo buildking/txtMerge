@@ -1,16 +1,15 @@
 import tkinter
 from combine import *
 from queryMake_sqlite import *
-from new_compare import *
 
 
 def process(textEntry=None):
-    #1. 엑셀 합치기
-    excelCombine(resultText)
-    #2. sqlite insert
-    queryMake(resultText)
-    #3. 엑셀 비교
-    dbcompare(resultText)
+    #1. txt 합치기
+    txtCombine(resultText)
+    # #2. sqlite insert
+    # queryMake(resultText)
+    # #3. 엑셀 비교
+    # dbcompare(resultText)
 
 
 if __name__ == '__main__':
