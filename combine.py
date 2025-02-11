@@ -44,6 +44,7 @@ def setup_database():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS gacha_data (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        GRADE TEXT,
         등급 TEXT,
         item_id INTEGER,
         이름 TEXT,
@@ -63,6 +64,7 @@ def setup_database():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS duplicate_gacha_data (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        GRADE TEXT,
         등급 TEXT,
         item_id INTEGER,
         이름 TEXT,
@@ -85,9 +87,10 @@ def insert_into_duplicate_db(row, original_file):
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO duplicate_gacha_data (등급, item_id, 이름, 횟수, 기대확률, 결과확률, 뽑기, 파일명, 원본_파일)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        INSERT INTO duplicate_gacha_data (GRADE, 등급, item_id, 이름, 횟수, 기대확률, 결과확률, 뽑기, 파일명, 원본_파일)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     """, (
+        row["GRADE"],
         row["등급"],
         row["ID"],
         row["이름"],
@@ -111,9 +114,9 @@ def insert_into_db(df):
     for _, row in df.iterrows():
         try:
             cursor.execute("""
-            INSERT INTO gacha_data (등급, item_id, 이름, 횟수, 기대확률, 결과확률, 뽑기, 파일명)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (row["등급"], row["ID"], row["이름"], row["횟수"], row["기대 확률(%)"], row["결과 확률(%)"], row["뽑기"], row["파일명"]))
+            INSERT INTO gacha_data (GRADE, 등급, item_id, 이름, 횟수, 기대확률, 결과확률, 뽑기, 파일명)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (row["GRADE"], row["등급"], row["ID"], row["이름"], row["횟수"], row["기대 확률(%)"], row["결과 확률(%)"], row["뽑기"], row["파일명"]))
         except sqlite3.IntegrityError:  # 🔥 중복 데이터 발생 시 예외 처리
             insert_into_duplicate_db(row, row["파일명"])  # 중복 데이터를 별도 테이블에 저장
 
@@ -218,7 +221,14 @@ def txtCombine(_text=None):
             detected_encoding = detect_encoding(file_path)
             df = pd.read_csv(file_path, sep="\t", skiprows=1, header=None, encoding=detected_encoding)
 
-            df.columns = ["등급", "ID", "이름", "횟수", "기대 확률(%)", "결과 확률(%)"]
+            logger.info(df)
+            _text.insert(END, f"\n ### [{file_path}]{df} 저장중.. \n")
+
+            df.columns = ["GRADE", "등급", "ID", "이름", "횟수", "기대 확률(%)", "결과 확률(%)"]
+
+            df["기대 확률(%)"] = df["기대 확률(%)"].astype(str).str.replace("%", "").astype(float)
+            df["결과 확률(%)"] = df["결과 확률(%)"].astype(str).str.replace("%", "").astype(float)
+
             # 🔥 뽑기 값 계산 (ZeroDivisionError 방지)
             df["뽑기"] = df.apply(lambda row: 
                 int(round(row["횟수"] / row["결과 확률(%)"])) 
@@ -227,14 +237,14 @@ def txtCombine(_text=None):
             ).replace([float("inf"), -float("inf")], 0)  # 🔥 무한대 값 방지
             df["파일명"] = os.path.basename(file_path)
 
-            insert_into_db(df)  # 🔥 SQLite에 데이터 삽입
+            insert_into_db(df)  # 🔥 SQLite에 데이터 삽입     
 
             time = str(datetime.datetime.now())[0:-7]
             _text.insert(END, f"[{time}] {os.path.basename(file_path)} (인코딩: {detected_encoding}) SQLite 저장 완료.\n")
         
         except Exception as e:
             msbox.showwarning("파일 오류", f"{os.path.basename(file_path)}을 읽을 수 없습니다.")
-            _text.insert(END, f"파일 오류: {os.path.basename(file_path)}을 읽을 수 없습니다.\n")
+            _text.insert(END, f"파일 오류: {os.path.basename(file_path)}을 읽을 수 없습니다.\n{e}\n")
             logger.error(f"파일 오류: {os.path.basename(file_path)} - {e}")
             return
 
